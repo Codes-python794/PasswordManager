@@ -1,125 +1,48 @@
-name: Build Android APK
+name: Build Password Manager EXE
 
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: windows-latest
 
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        cache: 'pip'
 
-      - name: Install Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller cryptography
+        # إذا كان لديك ملف متطلبات، قم بإلغاء التفعيل للسطر التالي:
+        # if (Test-Path "requirements.txt") { pip install -r requirements.txt }
 
-      - name: Install system packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            git zip unzip autoconf automake libtool \
-            pkg-config zlib1g-dev libncurses5-dev \
-            libncursesw5-dev cmake libffi-dev libssl-dev \
-            build-essential ccache
+    # (اختياري) إذا كنت بحاجة لفك ضغط أي ملفات إضافية أثناء البناء
+    - name: Extract Archive (if needed)
+      shell: pwsh
+      run: |
+        if (Test-Path "archive.zip") {
+          Expand-Archive -Path "archive.zip" -DestinationPath "./extracted" -Force
+        }
 
-      - name: Install Python packages
-        run: |
-          python -m pip install --upgrade pip
-          pip install Cython==0.29.36
-          pip install buildozer
+    - name: Build Executable with PyInstaller
+      run: |
+        # بناء الملف التنفيذي دمج الملفات معاً (onefile) وإخفاء نافذة الأوامر السوداء (noconsole)
+        # استبدل main.py بملف التشغيل الرئيسي لديك إذا كان مختلفاً
+        pyinstaller --noconsole --onefile --name="PasswordManager" main.py
 
-      - name: Install Android SDK command line tools
-        run: |
-          mkdir -p $HOME/android-sdk/cmdline-tools
-          cd $HOME/android-sdk
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip -O cmdline-tools.zip
-          unzip -q cmdline-tools.zip
-          mv cmdline-tools latest
-          mkdir -p cmdline-tools
-          mv latest cmdline-tools/latest
-
-      - name: Configure Android SDK
-        run: |
-          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
-          echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
-
-      - name: Install Android packages
-        run: |
-          yes | sdkmanager --licenses
-          sdkmanager "platform-tools"
-          sdkmanager "platforms;android-34"
-          sdkmanager "build-tools;34.0.0"
-          sdkmanager "ndk;25.2.9519653"
-
-      - name: Build APK
-        env:
-          ANDROIDSDK: ${{ env.ANDROID_SDK_ROOT }}
-          ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
-        run: |
-          buildozer android debug
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: PasswordManager-APK
-          path: bin/*.apk      - name: Install Python packages
-        run: |
-          python -m pip install --upgrade pip
-          pip install Cython==0.29.36
-          pip install buildozer
-
-      - name: Install Android SDK command line tools
-        run: |
-          mkdir -p $HOME/android-sdk/cmdline-tools
-          cd $HOME/android-sdk
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip -O cmdline-tools.zip
-          unzip -q cmdline-tools.zip
-          mv cmdline-tools latest
-          mkdir -p cmdline-tools
-          mv latest cmdline-tools/latest
-
-      - name: Configure Android SDK
-        run: |
-          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
-          echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
-
-      - name: Install Android packages
-        run: |
-          yes | sdkmanager --licenses
-          sdkmanager "platform-tools"
-          sdkmanager "platforms;android-34"
-          sdkmanager "build-tools;34.0.0"
-          sdkmanager "ndk;25.2.9519653"
-
-      - name: Build APK
-        env:
-          ANDROIDSDK: ${{ env.ANDROID_SDK_ROOT }}
-          ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
-        run: |
-          buildozer android debug
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: PasswordManager-APK
-          path: bin/*.apk        run: buildozer android debug
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: PasswordManager-APK
-          path: bin/*.apk
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: PasswordManager-EXE
+        path: dist/*.exe
