@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 env:
-  ZIP_FILE: Password_manager_full.zip   # غيّر الاسم لو الـ zip عندك باسم تاني
+  ZIP_FILE: Password_managerzip   # غيّر الاسم لو الـ zip عندك باسم تاني
 
 jobs:
   build:
